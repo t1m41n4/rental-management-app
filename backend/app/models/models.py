@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -17,12 +17,12 @@ class Property(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
     address = Column(String)
-    landlord_id = Column(Integer, ForeignKey("users.id"))
+    landlord_id = Column(Integer)
 
 
 class Payment(Base):
     __tablename__ = "payments"
     id = Column(Integer, primary_key=True, index=True)
-    tenant_id = Column(Integer, ForeignKey("users.id"))
+    tenant_id = Column(Integer)
     amount = Column(Float)
     date = Column(DateTime)
