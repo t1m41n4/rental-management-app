@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
+from datetime import datetime
 
 Base = declarative_base()
 
@@ -26,3 +27,12 @@ class Payment(Base):
     tenant_id = Column(Integer)
     amount = Column(Float)
     date = Column(DateTime)
+
+
+class Maintenance(Base):
+    __tablename__ = "maintenance"
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, ForeignKey("users.id"))
+    description = Column(String)
+    status = Column(String)
+    submitted_at = Column(DateTime, default=datetime.utcnow)
