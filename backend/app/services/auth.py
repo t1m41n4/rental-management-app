@@ -7,9 +7,11 @@ from sqlalchemy.orm import sessionmaker
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
+import os
 
-# Database setup (adjust URL if needed)
-DATABASE_URL = "postgresql://user:password@db:5432/rental_db"
+
+# Database setup
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://user:password@db:5432/rental_db")
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -17,9 +19,9 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT settings
-SECRET_KEY = "your-secret-key"  # Replace with a secure key (e.g., from .env)
+SECRET_KEY = os.environ.get("SECRET_KEY", "default-insecure-key-for-local-dev-only")  # Fallback for safety
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 
 # OAuth2 scheme for token extraction
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
@@ -39,7 +41,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_user(db: Session, user: "UserCreate"):
     hashed_password = hash_password(user.password)
-    db_user = User(email=user.email, hashed_password=hashed_password, role="tenant")  # Default to tenant
+    db_user = User(email=user.email, hashed_password=hashed_password, role="tenant")
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
