@@ -11,3 +11,6 @@ To get started, clone the repository and use Docker Compose to run the app:
 - **Clone**: `git clone https://github.com/t1m41n4/rental-management-app.git`
 - **Run**: `cd rental-management-app && docker-compose up --build`
 - **Migrate**: `docker-compose exec backend alembic upgrade head`
+
+  Frontend progress.
+  ![image](https://github.com/user-attachments/assets/3b5bbdc8-cdfc-4044-9335-95db79cbcc75)
