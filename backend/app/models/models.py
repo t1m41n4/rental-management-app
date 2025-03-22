@@ -1,38 +1,56 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Enum as SQLEnum
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 from datetime import datetime
+import enum
 
 Base = declarative_base()
 
+class UserRole(str, enum.Enum):
+    LANDLORD = "landlord"
+    TENANT = "tenant"
 
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
-    role = Column(String)  # "landlord" or "tenant"
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    role = Column(SQLEnum(UserRole), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
+    # Relationships
+    properties = relationship("Property", back_populates="landlord")
+    payments = relationship("Payment", back_populates="tenant")
+    maintenance_requests = relationship("Maintenance", back_populates="tenant")
 
 class Property(Base):
     __tablename__ = "properties"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
-    address = Column(String)
-    landlord_id = Column(Integer)
+    name = Column(String, nullable=False)
+    address = Column(String, nullable=False)
+    landlord_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
+    # Relationships
+    landlord = relationship("User", back_populates="properties")
 
 class Payment(Base):
     __tablename__ = "payments"
     id = Column(Integer, primary_key=True, index=True)
-    tenant_id = Column(Integer)
-    amount = Column(Float)
-    date = Column(DateTime)
+    tenant_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    amount = Column(Float, nullable=False)
+    date = Column(DateTime, default=datetime.utcnow)
 
+    # Relationships
+    tenant = relationship("User", back_populates="payments")
 
 class Maintenance(Base):
     __tablename__ = "maintenance"
     id = Column(Integer, primary_key=True, index=True)
-    tenant_id = Column(Integer, ForeignKey("users.id"))
-    description = Column(String)
-    status = Column(String)
+    tenant_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    description = Column(String, nullable=False)
+    status = Column(String, nullable=False)
     submitted_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    tenant = relationship("User", back_populates="maintenance_requests")
