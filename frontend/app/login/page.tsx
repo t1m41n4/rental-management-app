@@ -4,12 +4,15 @@ import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Layout from '@/components/Layout';
+import { toast } from 'react-hot-toast';
+import { useAuthentication } from '@/hooks/useAuthentication';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -17,30 +20,40 @@ export default function LoginPage() {
     setIsLoading(true);
     setError('');
 
+    if (!email || !password) {
+      setError('Please fill in all fields');
+      toast.error('Please fill in all fields');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const result = await signIn('credentials', {
         email,
         password,
+        remember: rememberMe,
         redirect: false,
       });
 
       if (result?.error) {
-        setError('Invalid credentials');
+        const errorMessage = 'Invalid email or password';
+        toast.error(errorMessage);
+        setError(errorMessage);
         return;
       }
 
-      // Get updated session
-      const response = await fetch('/api/auth/session');
-      const session = await response.json();
-
-      // Redirect based on role
-      if (session?.user?.role === 'landlord') {
+      const { user } = useAuthentication();
+      if (user?.role === 'landlord') {
+        toast.success('Welcome back, Landlord!');
         router.push('/landlord');
-      } else if (session?.user?.role === 'tenant') {
+      } else if (user?.role === 'tenant') {
+        toast.success('Welcome back, Tenant!');
         router.push('/tenant');
       }
     } catch (err) {
-      setError('Login failed. Please try again.');
+      const errorMessage = 'Login failed. Please try again.';
+      toast.error(errorMessage);
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -82,6 +95,18 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
+            </div>
+            <div className="flex items-center mb-4">
+              <input
+                type="checkbox"
+                id="rememberMe"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 text-indigo-600"
+              />
+              <label htmlFor="rememberMe" className="ml-2 text-sm text-gray-600">
+                Remember me
+              </label>
             </div>
             <div className="flex items-center justify-between">
               <button

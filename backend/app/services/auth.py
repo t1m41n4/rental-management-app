@@ -10,6 +10,7 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 import os
+import pyotp
 
 
 # Database setup
@@ -102,3 +103,28 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     except JWTError as e:
         print('get_current_user - JWTError:', e)  #   Debug log: JWTError
         raise credentials_exception
+
+
+def generate_reset_token(email: str) -> str:
+    data = {
+        "sub": email,
+        "type": "reset",
+        "exp": datetime.utcnow() + timedelta(hours=1)
+    }
+    return jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
+
+def verify_reset_token(token: str) -> str:
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload["type"] != "reset":
+            return None
+        return payload["sub"]
+    except JWTError:
+        return None
+
+def generate_2fa_secret() -> str:
+    return pyotp.random_base32()
+
+def verify_2fa_code(secret: str, code: str) -> bool:
+    totp = pyotp.TOTP(secret)
+    return totp.verify(code)

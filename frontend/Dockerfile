@@ -2,31 +2,26 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Add non-root user for security
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
-
-# Install dependencies first for better caching
+# Add package management files
 COPY package*.json ./
+
+# Install dependencies with clean slate
+RUN rm -rf node_modules
+RUN npm cache clean --force
 RUN npm install
 
 # Copy the rest of the application
 COPY . .
 
-# Create required directories and set permissions
-RUN mkdir -p /app/.next && \
-    touch /app/next-env.d.ts && \
-    chown -R nextjs:nodejs /app && \
-    chmod -R 755 /app && \
-    chmod 777 /app/next-env.d.ts && \
-    chmod -R 777 /app/.next
+# Set correct permissions
+RUN chown -R node:node /app
+USER node
 
-USER nextjs
+# Create .next directory with correct permissions
+RUN mkdir -p .next
 
-# Set environment variables
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV PORT 3000
 ENV NODE_ENV development
 
-# Development-specific settings
 CMD ["npm", "run", "dev"]

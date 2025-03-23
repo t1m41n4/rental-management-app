@@ -2,9 +2,21 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
+import { authApi } from '@/lib/api/auth';
 import Layout from '@/components/Layout';
-import type { RegisterResponse, ApiError } from '@/types/api';
+import type { ApiError } from '@/types/api';
+import { toast } from 'react-hot-toast';
+import { object, string } from 'yup';
+
+const validationSchema = object({
+  email: string().email('Invalid email').required('Email is required'),
+  password: string()
+    .min(8, 'Password must be at least 8 characters')
+    .matches(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .matches(/[0-9]/, 'Password must contain at least one number')
+    .required('Password is required'),
+  role: string().oneOf(['tenant', 'landlord'], 'Please select a role').required('Role is required'),
+});
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -22,11 +34,22 @@ export default function RegisterPage() {
     setError('');
 
     try {
-      await api.post<RegisterResponse>('/register', formData);
+      // Validate form data
+      await validationSchema.validate(formData);
+
+      await authApi.register(formData.email, formData.password, formData.role);
+      toast.success('Registration successful!');
       router.push('/login?registered=true');
     } catch (err) {
-      const apiError = err as { response?: { data: ApiError } };
-      setError(apiError.response?.data.detail || 'Registration failed');
+      if (err.name === 'ValidationError') {
+        setError(err.message);
+        toast.error(err.message);
+      } else {
+        const apiError = err as { response?: { data: ApiError } };
+        const errorMessage = apiError.response?.data?.detail || 'Registration failed. Please try again.';
+        setError(errorMessage);
+        toast.error(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }

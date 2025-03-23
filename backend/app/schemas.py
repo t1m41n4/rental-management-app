@@ -33,3 +33,11 @@ class PaymentCreate(BaseModel):
     tenant_id: int
     amount: float
     date: datetime = datetime.now()
+
+
+class PasswordReset(BaseModel):
+    token: str
+    new_password: constr(min_length=8)
+
+class TwoFactorSetup(BaseModel):
+    code: str

@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes import auth, landlord, tenant
 import os
+import datetime
 
 app = FastAPI(
     title="Rental Management API",
@@ -24,6 +25,13 @@ app.include_router(auth.router)
 app.include_router(landlord.router)
 app.include_router(tenant.router)
 
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": datetime.datetime.now().isoformat()
+    }
 
 @app.get("/")
 def read_root():
