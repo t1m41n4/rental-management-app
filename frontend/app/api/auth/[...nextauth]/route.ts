@@ -1,9 +1,18 @@
 // frontend/app/api/auth/[...nextauth]/route.ts
-import NextAuth from "next-auth";
+import NextAuth, { AuthOptions, Session as NextAuthSession, User } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import axios from "axios";
+import { JWT, JwtPayload } from "next-auth/jwt";
+import { SessionStrategy } from "next-auth";
 
-export const authOptions = {
+export interface MySession extends NextAuthSession {
+  accessToken?: string;
+  user?: User & {
+    role?: string;
+  };
+}
+
+export const authOptions: AuthOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -11,47 +20,71 @@ export const authOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
-        console.log("Authorize:", credentials);
+      async authorize(credentials): Promise<User | null> {
         try {
           const res = await axios.post("http://backend:8000/login", {
             email: credentials?.email,
             password: credentials?.password,
           });
-          console.log("Backend:", res.data);
-          const user = res.data;
-          if (user && user.access_token) {
-            return { email: credentials?.email, accessToken: user.access_token, role: user.role };
+
+          if (res.data.access_token) {
+            return {
+              id: res.data.user_id?.toString() || "0",
+              email: credentials?.email || "",
+              role: res.data.role,
+              accessToken: res.data.access_token,
+            };
           }
           return null;
         } catch (error) {
-          console.error("Authorize error:", error);
+          console.error("Auth Error:", error);
           return null;
         }
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.accessToken = user.accessToken;
-        token.role = user.role;
+    async jwt({ token, user, account }) {
+      if (account && user) {
+        return {
+          ...token,
+          accessToken: user.accessToken,
+          role: user.role,
+          refreshToken: user.refreshToken,
+        };
       }
       return token;
     },
     async session({ session, token }) {
-      if (token) {
-        session.accessToken = token.accessToken;
-        session.user.role = token.role;
-      }
-      return session;
+      return {
+        ...session,
+        accessToken: token.accessToken,
+        user: {
+          ...session.user,
+          role: token.role,
+        },
+      };
     },
   },
   pages: {
     signIn: "/login",
+    error: "/login",
+    signOut: "/",
   },
-  secret: process.env.NEXTAUTH_SECRET,  // Use env variable, no fallback
-  session: { strategy: "jwt" },
+  secret: process.env.NEXTAUTH_SECRET,
+  session: { strategy: 'jwt' satisfies SessionStrategy },
+  cookies: {
+    sessionToken: {
+      name: "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        domain: "localhost",
+        secure: false,
+      },
+    },
+  },
 };
 
 const handler = NextAuth(authOptions);

@@ -10,7 +10,9 @@ router = APIRouter(prefix="/landlord", tags=["landlord"])
 
 
 def get_landlord_user(current_user: dict = Depends(get_current_user)):
+    print('get_landlord_user - Current User:', current_user)  # Debug log: current_user info
     if current_user["role"] != "landlord":
+        print('get_landlord_user - Access Denied: Role mismatch')  # Debug log: role mismatch
         raise HTTPException(status_code=403, detail="Not authorized")
     return current_user
 
@@ -37,9 +39,11 @@ def list_tenants(db: Session = Depends(get_db), redis = Depends(get_redis), user
 
     print(f"Cache miss for {cache_key}")  # Debug log
     tenants = db.query(User).filter(User.role == "tenant").all()
-    tenant_data = [{"id": t.id, "email": t.email} for t in tenants]
-    cache_data(cache_key, json.dumps(tenant_data))
-    return tenant_data
+    tenant_list = []  # Changed variable name to avoid shadowing
+    for t in tenants:
+        tenant_list.append({"id": t.id, "email": t.email})  # Append to list
+    cache_data(cache_key, json.dumps(tenant_list))
+    return tenant_list  # Return the list
 
 
 @router.post("/properties")

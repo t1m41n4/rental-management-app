@@ -10,7 +10,9 @@ router = APIRouter(prefix="/tenant", tags=["tenant"])
 
 
 def get_tenant_user(current_user: dict = Depends(get_current_user)):
+    print('get_tenant_user - Current User:', current_user)  # Debug log: current_user info
     if current_user["role"] != "tenant":
+        print('get_tenant_user - Access Denied: Role mismatch')  # Debug log: role mismatch
         raise HTTPException(status_code=403, detail="Not authorized")
     return current_user
 
