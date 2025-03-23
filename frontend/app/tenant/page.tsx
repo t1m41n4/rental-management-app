@@ -1,65 +1,71 @@
 "use client";
-"use client";
+
 import { signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { api, setAuthToken } from "../../lib/api";
 import Layout from '@/components/Layout';
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { MySession } from "@/app/api/auth/[...nextauth]/route"; // Import MySession
+import { MaintenanceRequest, TenantDetails } from '@/types/api';
+import AuthGuard from "@/components/AuthGuard";
+import { toast } from 'react-hot-toast';
 
-
-interface MaintenanceRequest {
-  id: number;
-  description: string;
-  status: string;
-  submitted_at: string;
-}
-
-interface TenantDetails {
-  email: string | undefined;
-  due_date: string | undefined;
-  amount: string | undefined;
-}
-
-interface TenantDashboardProps {
-  session: MySession | null;
-}
-
-
-const TenantDashboard: React.FC<TenantDashboardProps> = ({ session }) => {
-  console.log("TenantDashboard - Session Data:", session); // Debug log: session data
-  console.log("TenantDashboard - Session Role:", session?.user?.role); // Debug log: session role
+const TenantDashboard = () => {
   const [details, setDetails] = useState<TenantDetails | null>(null);
   const [maintenanceRequests, setMaintenanceRequests] = useState<MaintenanceRequest[]>([]);
-  const [description, setDescription] = useState<string>("");
+  const [description, setDescription] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (session?.accessToken) {
-      setAuthToken(session.accessToken);
-      api.get("/tenant/details")
-        .then((res) => setDetails(res.data as TenantDetails))
-        .catch((error) => console.error("Error fetching tenant details:", error));
-      api.get("/tenant/maintenance")
-        .then((res) => setMaintenanceRequests(res.data as MaintenanceRequest[]))
-        .catch((error) => console.error("Error fetching maintenance requests:", error));
-    }
-  }, [session?.accessToken]);
+    fetchData();
+  }, []);
 
-  const handleSubmitMaintenance = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const fetchData = async () => {
     try {
-      const res = await api.post("/tenant/maintenance", { description });
-      setMaintenanceRequests([...maintenanceRequests, res.data as MaintenanceRequest]);
-      setDescription("");
-    } catch (error: any) {
-      console.error("Failed to submit maintenance request:", error);
+      const [detailsRes, requestsRes] = await Promise.all([
+        api.get("/tenant/details"),
+        api.get("/tenant/maintenance")
+      ]);
+      setDetails(detailsRes.data);
+      setMaintenanceRequests(requestsRes.data);
+    } catch (error) {
+      toast.error("Failed to load dashboard data");
+      console.error(error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  const handleSubmitMaintenance = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!description.trim()) {
+      toast.error("Please enter a description");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await api.post("/tenant/maintenance", { description });
+      setMaintenanceRequests(prev => [...prev, res.data]);
+      setDescription("");
+      toast.success("Maintenance request submitted successfully");
+    } catch (error) {
+      toast.error("Failed to submit maintenance request");
+      console.error(error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto p-4 py-8">
+    <div className="container mx-auto p-4 py-8 max-w-4xl">
       <h1 className="text-3xl font-bold text-indigo-700 mb-6">Tenant Dashboard</h1>
       <div className="flex justify-end mb-4">
         <button onClick={() => signOut()} className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
@@ -67,14 +73,21 @@ const TenantDashboard: React.FC<TenantDashboardProps> = ({ session }) => {
         </button>
       </div>
       {details && (
-        <section className="mb-8 p-6 bg-white shadow-md rounded-lg">
+        <section className="mb-8 p-6 bg-white shadow-md rounded-lg hover:shadow-lg transition-shadow">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">Rental Details</h2>
-          <div className="mb-3"><strong>Email:</strong> <span className="text-indigo-600">{details?.email || 'N/A'}</span></div>
-          <div className="mb-3"><strong>Due Date:</strong> <span className="text-indigo-600">{details?.due_date || 'N/A'}</span></div>
-          <div><strong>Amount Due:</strong> <span className="text-indigo-600">{details?.amount || 'N/A'}</span></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="mb-3">
+              <strong className="text-gray-700">Property:</strong>
+              <p className="text-indigo-600">{details.property.name}</p>
+              <p className="text-sm text-gray-600">{details.property.address}</p>
+            </div>
+            <div className="mb-3"><strong>Email:</strong> <span className="text-indigo-600">{details?.email || 'N/A'}</span></div>
+            <div className="mb-3"><strong>Due Date:</strong> <span className="text-indigo-600">{details?.due_date || 'N/A'}</span></div>
+            <div><strong>Amount Due:</strong> <span className="text-indigo-600">{details?.amount || 'N/A'}</span></div>
+          </div>
         </section>
       )}
-      <section className="p-6 bg-white shadow-md rounded-lg">
+      <section className="p-6 bg-white shadow-md rounded-lg hover:shadow-lg transition-shadow">
         <h2 className="text-xl font-semibold text-gray-800 mb-4">Maintenance Requests</h2>
         <ul className="mb-5 space-y-3">
           {maintenanceRequests.map((request: MaintenanceRequest) => (
@@ -86,17 +99,22 @@ const TenantDashboard: React.FC<TenantDashboardProps> = ({ session }) => {
           ))}
         </ul>
         <h3 className="text-lg font-semibold text-gray-800 mt-5 mb-3">Submit New Request</h3>
-        <form onSubmit={handleSubmitMaintenance} className="flex flex-col space-y-4">
+        <form onSubmit={handleSubmitMaintenance} className="mt-6">
           <textarea
             id="description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Describe the issue you are experiencing"
-            className="shadow-sm appearance-none border rounded-lg w-full py-3 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             rows={5}
+            disabled={isSubmitting}
           />
-          <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline">
-            Submit Maintenance Request
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="mt-4 w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          >
+            {isSubmitting ? 'Submitting...' : 'Submit Maintenance Request'}
           </button>
         </form>
       </section>
@@ -104,15 +122,12 @@ const TenantDashboard: React.FC<TenantDashboardProps> = ({ session }) => {
   );
 };
 
-
-export default async function TenantPanel() { // Modify component to async
-  const session = await getServerSession(authOptions); // Fetch session server-side
-
-  if (session?.user?.role !== "tenant") return <p>Access Denied</p>; // Server-side role check
-
+export default function TenantPanel() {
   return (
-    <Layout>
-      <TenantDashboard session={session} />
-    </Layout>
+    <AuthGuard requiredRole="tenant">
+      <Layout>
+        <TenantDashboard />
+      </Layout>
+    </AuthGuard>
   );
 }

@@ -106,16 +106,12 @@ const LandlordDashboard: React.FC<LandlordDashboardProps> = ({ session }) => {
 
 
 // Define LandlordPanel component as async to use getServerSession
-export default async function LandlordPanel() { // Modify component to async
-  const session = await getServerSession(authOptions); // Fetch session server-side
-
-  if (session?.user?.role !== "landlord") { // Server-side role check
-    return <p>Access Denied</p>; // Render "Access Denied" server-side if role is incorrect
-  }
-
+export default function LandlordPanel() {
   return (
-    <Layout>
-      <LandlordDashboard session={session} />
-    </Layout>
+    <AuthGuard requiredRole="landlord">
+      <Layout>
+        <LandlordDashboard />
+      </Layout>
+    </AuthGuard>
   );
 }
